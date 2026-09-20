@@ -3,13 +3,15 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Environments
-.env
-.venv/
-env/
-venv/
-ENV/
-env.bak/
+# C extensions
+*.so
+*.dll
+
+# Build outputs
+target/
+build/
+*.egg-info/
+dist/
 
 # IDE
 .vscode/
@@ -18,22 +20,22 @@ env.bak/
 *.swo
 *~
 
-# Build outputs
-build/
-dist/
-*.egg-info/
+# Environment
+.env
+.venv/
+venv/
+.env.*
 
-# Database (SQLite)
-gateway.db
-
-# Logs
-*.log
-logs/
+# Database (optional - uncomment if using DB)
+# gateway.db
+# gateway.db-journal
+# gateway.db-shm
+# gateway.db-wal
 
 # OS files
 .DS_Store
 Thumbs.db
 
-# Test coverage
-.coverage
-htmlcov/
+# Logs
+*.log
+logs/

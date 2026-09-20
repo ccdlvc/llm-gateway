@@ -1,0 +1,2 @@
+This file confirms write access to the project root.
+Deleting this after we create the new directories.

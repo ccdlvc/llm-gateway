@@ -5,6 +5,8 @@
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)]()
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+---
+
 ## One-Liner
 
 ```bash
@@ -15,93 +17,143 @@ Then configure Claude Code to use `http://localhost:8080/v1/messages/completions
 
 ---
 
-## What Does This Do?
-
-The LLM Gateway is a **balance-aware routing proxy** that:
-
-- Aggregates balances from multiple Claude API accounts into a single "virtual pool"
-- Automatically routes requests across accounts based on remaining balance, weights, and health
-- Supports **multi-model routing** — mix Claude, Codex, Ollama, etc. in one session
-- Maintains **sticky sessions** so conversation context stays within one account
-- Provides **automatic failover** when an account is rate-limited or exhausted
-
-### Example Session
+## Quick Tour
 
 ```
-User: "Write a React component with TypeScript"
-  → Detected as code generation → Routed to Codex (cost: $0.0000002)
-
-User: "Explain quantum entanglement"
-  → Detected as reasoning → Routed to Claude-3.5-Sonnet (cost: $0.00048)
-
-User: "Tell me a joke"
-  → Detected as general chat → Routed to Claude-3-Haiku (cost: $0.00009)
-
-Total cost: ~$0.00059 for a multi-model session
+╔══════════════════════════════════════════════════════╗
+║              LLM Gateway Architecture                 ║
+╠══════════════════════════════════════════════════════╣
+║  ┌──────────────┐    ┌───────────────────────┐     ║
+║  │   Zed Plugin │◄──►│   Flask Proxy Server  │     ║
+║  │              │    │                       │     ║
+║  │  • UI Panel  │    │  • Account mgmt       │     ║
+║  │  • Budget UI │    │  • Routing engine     │     ║
+║  │  • Cost view │    │  • Audit logging      │     ║
+║  └──────────────┘    └───────────────────────┘     ║
+║                           │                          ║
+║  ┌───────────────────────▼────────────────────────┐ ║
+║  │         LLM Gateway Core (Python/Rust)          │ ║
+║  │                                                 │ ║
+║  │  ┌──────────────┬──────────────────────┐       │ ║
+║  │  │ Account      │   Cost Optimizer     │       │ ║
+║  │  │ Router       │                      │       │ ║
+║  │  └──────────────┴──────────────────────┘       │ ║
+║  │                                                 │ ║
+║  │  ┌──────────────┬──────────────────────┐       │ ║
+║  │  │ Virtual Pool │   Retry Manager      │       │ ║
+║  │  │ Tracker      │                      │       │ ║
+║  │  └──────────────┴──────────────────────┘       │ ║
+║  └─────────────────────────────────────────────────┘ ║
+║                           │                          ║
+║  ┌───────────────────────▼─────────────────────────┐ ║
+║  │              SQLite Database                     │ ║
+║  │  • accounts | sessions | request_log | budgets   │ ║
+║  └─────────────────────────────────────────────────┘ ║
+╚══════════════════════════════════════════════════════╝
 ```
 
 ---
 
-## Quick Start
+## Features
 
-### Install
+| Feature | Description |
+|---------|-------------|
+| **Multi-account pooling** | Aggregate balances across multiple accounts into a unified pool |
+| **Balance-aware routing** | Automatically routes requests to accounts with the most available capacity |
+| **Cost optimization** | Route simple queries to cheaper models (Haiku, Codex, Ollama) |
+| **Sticky sessions** | Keep conversation context within one account to avoid fragmentation |
+| **Automatic failover** | Switch to backup accounts when primary is rate-limited or exhausted |
+| **Budget limits** | Per-account spending limits with warnings and hard stops |
+| **Multi-model support** | Mix Claude, Codex, Ollama, etc. in a single session |
+
+---
+
+## Installation
+
+### Server-side (Proxy)
 
 ```bash
-cd Z:/home/ccdlvc/Working/ccd_plugin/llm_gateway
+cd server-side
 pip install -r requirements.txt
+python run.py --host 0.0.0.0 --port 8080
 ```
 
-### Start the Server
+### Client-side (Zed Plugin)
 
 ```bash
-python -m llm_gateway proxy --host 0.0.0.0 --port 8080
+cd client-side/zed-plugin
+cargo build --release
+# Copy the .dll to Zed's plugins directory:
+# Windows: %APPDATA%\zed\plugins\llm-gateway.dll
+# Linux/macOS: ~/.local/share/zed/plugins/llm-gateway.so
 ```
 
-### Configure Claude Code
+### CLI (Account Management)
 
-Edit `~/.claude/codeium`:
+```bash
+cd server-side
+python cli.py add-account --name "Team Alpha" --api-key "sk-ant-..." --balance 100
+python cli.py pool-status
+python cli.py show-accounts
+```
+
+---
+
+## Usage
+
+### 1. Start the Server
+
+```bash
+cd server-side
+python run.py --host 0.0.0.0 --port 8080
+```
+
+### 2. Add Accounts
+
+```bash
+python cli.py add-account \
+  --name "Team Alpha" \
+  --api-key "sk-ant-xxxxxxxxxxxxxxxx" \
+  --balance 100 \
+  --weight 2.0
+
+python cli.py add-account \
+  --name "Team Beta" \
+  --api-key "sk-ant-yyyyyyyyyyyyyyyy" \
+  --balance 40 \
+  --weight 1.0
+
+python cli.py add-account \
+  --name "Local Ollama" \
+  --api-key "ollama" \
+  --balance 999999 \
+  --model "codellama-7b"
+```
+
+### 3. Configure Claude Code
+
+Edit `~/.claude/codeium` (or your IDE's config):
 
 ```json
 {
   "custom_models": [
     {
       "name": "llm-gateway",
-      "endpoint": "http://localhost:8080/v1/messages/completions",
-      "model_name": "gateway-pool"
+      "endpoint": "http://localhost:8080/v1/messages/completions"
     }
   ],
   "default_model": "llm-gateway"
 }
 ```
 
-Restart VS Code / Claude Code. Done!
+### 4. Use It!
 
----
+Now when you type in your IDE, the gateway will:
 
-## Multi-Model Routing
-
-To use **Claude + Codex + Ollama** in one session, edit `~/.claude/codeium`:
-
-```json
-{
-  "custom_models": [
-    {
-      "name": "gateway-multi",
-      "endpoint": "http://localhost:8080/v1/messages/completions",
-      "model_name": "auto-routing-pool"
-    }
-  ]
-}
-```
-
-The gateway automatically detects task type and routes:
-
-| Task Type | Routes To | Why |
-|-----------|-----------|-----|
-| Code generation | Codex / Llama-Coder | Cheaper for code |
-| Reasoning / math | Claude-3.5-Sonnet | Best reasoning |
-| Creative writing | Claude-3.5-Sonnet | High quality |
-| General chat | Claude-3-Haiku | Cheapest |
+- Detect the task type (code, reasoning, chat)
+- Route to the best model for that task
+- Respect budget limits
+- Fail over automatically if an account is exhausted
 
 ---
 
@@ -114,7 +166,9 @@ curl -X POST http://localhost:8080/v1/messages/completions \
   -H "Content-Type: application/json" \
   -d '{
     "session_id": "sess-1",
-    "messages": [{"role": "user", "content": "Hello!"}],
+    "messages": [
+      {"role": "user", "content": "Write a React component"}
+    ],
     "max_tokens": 4096
   }'
 ```
@@ -125,42 +179,71 @@ curl -X POST http://localhost:8080/v1/messages/completions \
 curl http://localhost:8080/v1/pool
 ```
 
-Response:
+### Register Account
 
-```json
-{
-  "pool_name": "Claude Pool",
-  "balance_usd": 250.0,
-  "tokens_available": 16_666_666_667,
-  "accounts": [
-    {"id": "acc-1", "name": "Team Alpha", "balance": 100.0},
-    {"id": "acc-2", "name": "Team Beta", "balance": 40.0},
-    {"id": "acc-3", "name": "Team Gamma", "balance": 110.0}
-  ]
-}
+```bash
+curl -X POST http://localhost:8080/v1/accounts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "My Account",
+    "api_key": "sk-...",
+    "balance": 50,
+    "weight": 1.0
+  }'
 ```
 
 ---
 
 ## Architecture
 
-```
-Claude Code → LLM Gateway → Multiple Models
-                │
-        ┌───────┼─────────┬──────────┐
-        ▼       ▼         ▼          ▼
-   Claude-3.5  Codex    Haiku    Ollama
-   (reasoning) (code)   (chat)   (local)
-```
+### Server-Side (`server-side/`)
+
+- `gateway.py` — Core routing engine (language-agnostic)
+- `cost_optimizer.py` — Cost-aware model selection
+- `multi_model_gateway.py` — Multi-model support
+- `run.py` — Flask proxy server
+- `cli.py` — Command-line interface
+- `Makefile` — Build scripts
+
+### Client-Side (`client-side/zed-plugin/`)
+
+- `src/lib.rs` — Core gateway logic ported to Rust
+- `src/main.rs` — Zed plugin entry point
+- `zed_plugin.toml` — Plugin manifest
+- `demo.py` — Python demo (no Rust needed)
+
+The core logic is shared between the server and plugin via the `server-side/` module.
 
 ---
 
-## Use Cases
+## Project Structure
 
-- **Multi-team orgs**: Share a budget across engineering, research, and product teams
-- **Cost optimization**: Route simple queries to cheaper models, complex ones to Claude
-- **Multi-region**: Route requests to accounts in different geographic regions
-- **Failover**: If one account is rate-limited, automatically use another
+```
+llm-gateway/
+├── README.md                 # This file
+├── LICENSE
+├── Makefile
+├── requirements.txt          # Python dependencies
+├── server-side/             # Core gateway logic
+│   ├── __init__.py
+│   ├── gateway.py           # Main routing engine
+│   ├── cost_optimizer.py    # Cost optimization
+│   ├── multi_model_gateway.py # Multi-model support
+│   ├── run.py               # Flask server
+│   ├── cli.py               # CLI tool
+│   ├── Makefile
+│   └── requirements.txt
+└── client-side/
+    └── zed-plugin/          # Zed plugin
+        ├── Cargo.toml
+        ├── zed_plugin.toml
+        ├── src/
+        │   ├── lib.rs       # Core logic (Rust)
+        │   ├── main.rs      # Plugin entry point
+        │   └── gateway.rs   # Shared types
+        ├── demo.py          # Standalone demo
+        └── README.md
+```
 
 ---
 

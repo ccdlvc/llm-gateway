@@ -1,0 +1,15 @@
+# Rust build artifacts
+target/
+*.rlib
+*.rmeta
+Cargo.lock
+
+# Plugin binary (built)
+llm-gateway-plugin.dll
+libllm_gateway_plugin.so
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

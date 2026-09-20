@@ -1,0 +1,27 @@
+[package]
+name = "llm-gateway"
+version = "0.1.0"
+authors = ["Your Name <you@example.com>"]
+description = """LLM Gateway - Balance-aware routing for Zed's LLM client.
+
+Features:
+  • Multi-account pool with automatic failover
+  • Cost-aware model selection (Claude, Codex, Ollama)
+  • Per-account budget limits with warnings
+  • Virtual pool balance tracking
+  • Routing decision visibility
+"""
+edition = "2024"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = "0.4"
+anyhow = "1.0"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "llm-gateway-plugin"
+path = "src/main.rs"
