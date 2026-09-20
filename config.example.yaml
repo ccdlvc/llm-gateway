@@ -1,0 +1,51 @@
+# LLM Gateway Configuration
+# Copy this to config.yaml and customize
+
+# Server settings
+server:
+  host: "0.0.0.0"
+  port: 8080
+  debug: false
+
+# Database
+database:
+  path: "./gateway.db"
+
+# Default cost rates (USD per 1M tokens)
+cost_rates:
+  claude-3-5-sonnet-20241022:
+    input_per_million: 3.00
+    output_per_million: 15.00
+  claude-3-opus-20240229:
+    input_per_million: 15.00
+    output_per_million: 75.00
+  claude-3-sonnet-20240229:
+    input_per_million: 3.00
+    output_per_million: 15.00
+  claude-3-haiku-20240307:
+    input_per_million: 0.25
+    output_per_million: 1.25
+
+# Routing configuration
+routing:
+  strategy: "balance_aware"  # options: balance_aware, round_robin, weighted, sticky
+  sticky_session_timeout_seconds: 3600  # How long to stick to an account per session
+  fallback_enabled: true
+  max_fallback_attempts: 3
+
+# Account health thresholds
+health:
+  max_latency_ms: 5000      # Accounts with avg latency > this are penalized
+  latency_penalty_factor: 0.1
+  rate_limit_window_seconds: 60
+  max_requests_per_window: 100
+
+# Virtual pool settings
+pool:
+  enabled: true
+  show_individual_balances: true
+
+# Logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s %(levelname)s [%(name)s] %(message)s"
